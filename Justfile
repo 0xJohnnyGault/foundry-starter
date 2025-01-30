@@ -12,6 +12,7 @@ ETH_RPC_URL := env_var_or_default("ETH_RPC_URL", "http://127.0.0.1:8545")
 MNEMONIC := env_var_or_default("MNEMONIC", "test test test test test test test test test test test junk")
 # First key from MNEMONIC `cast wallet private-key "${MNEMONIC}"`
 PRIVATE_KEY := env_var_or_default("PRIVATE_KEY", "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+ETH_FROM := env_var_or_default("ETH_FROM", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
 
 # Print out some help
 default:
@@ -34,21 +35,9 @@ forge-script cmd:
 anvil *args:
 	anvil --mnemonic "${MNEMONIC}" {{args}}
 
-# Decode errors from Solidity contract
-[group('Solidity')]
-decoded-errors:
-	#!/usr/bin/env bash
-	join() { local d=$1 s=$2; shift 2 && printf %s "$s${@/#/$d}"; }
-	shopt -s globstar # so /**/ works
-	errors=$(cat artifacts-forge/**/*.json | jq -r '.abi[]? | select(.type == "error") | .name' | sort | uniq)
-	sigsArray=()
-	for x in $errors;	do
-		sigsArray+=("\"$(cast sig "${x}()")\":\"${x}()\"")
-	done
-	sigs=$(join ',' ${sigsArray[*]})
-	echo "{${sigs}}" | jq
+cast-send contract method *args:
+  cast send --from $ETH_FROM --private-key ${PRIVATE_KEY} {{contract}} "{{method}}" {{args}}
 
-# Check if there is an http(s) server listening on [url]
-_ping url:
-	@if ! curl -k --silent --connect-timeout 2 {{url}} >/dev/null 2>&1; then echo 'No server at {{url}}!' && exit 1; fi
+cast-call contract method *args:
+  cast call --from $ETH_FROM {{contract}} "{{method}}" {{args}}
 
